@@ -1,112 +1,98 @@
 import streamlit as st
-from bs4 import BeautifulSoup
 import requests
-import re  # Add for regular expressions
+from bs4 import BeautifulSoup
+import re
+import statistics
 
-# Headers for requests
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-}
+st.set_page_config(page_title="FlipIT", layout="wide")
 
-EXCLUDE_KEYWORDS = [
-    "broken", "not working", "for parts", "repair", "no sound", 
-    "empty box", "box only", "case", "charging case", "replacement", 
-    "parts only", "read description", "as-is", "defective", "damaged", 
-    "left only", "right only", "left ear", "right ear", "a2031", "a2032",
-    "shop on ebay", "headphones", "bluetooth headset", "shop on ebay — $20.00"
-]
+def extract_first_price(text):
+    matches = re.findall(r"\d+\.\d{2}", text.replace(",", ""))
+    return float(matches[0]) if matches else None
 
-# Function to check if a title contains excluded keywords or specific phrases
-def title_is_clean(title):
-    title_lower = title.lower()
-    if any(keyword in title_lower for keyword in EXCLUDE_KEYWORDS):
-        return False
+def scrape_ebay_sold(search_term):
+    url = f"https://www.ebay.com/sch/i.html?_nkw={search_term}&_sop=13&LH_Complete=1&LH_Sold=1"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    listings = []
 
-    # Use regex to exclude "Shop on eBay — $20.00" variations
-    if re.search(r"shop on ebay\s*[-—]?\s*\$?20\.00", title.lower()):
-        return False
+    for item in soup.select(".s-item"):
+        title_tag = item.select_one(".s-item__title")
+        price_tag = item.select_one(".s-item__price")
+        link_tag = item.select_one(".s-item__link")
 
-    return True
-
-def get_sold_prices(search_term="AirPods 2nd Generation"):
-    search_term = search_term.replace(" ", "+")
-    url = f'https://www.ebay.com/sch/i.html?_nkw={search_term}&_sop=12&LH_Sold=1&LH_Complete=1'
-    response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    sold_items = []
-    for item in soup.select('.s-item'):
-        title = item.select_one('.s-item__title')
-        price = item.select_one('.s-item__price')
-        if title and price and title_is_clean(title.text):
-            try:
-                price_text = price.text.replace('$', '').replace(',', '').split(' ')[0]
-                price_float = float(price_text)
-                sold_items.append((title.text.strip(), price_float))
-            except ValueError:
+        if title_tag and price_tag and link_tag:
+            title = title_tag.text.strip()
+            if "Shop on eBay" in title:
                 continue
-    return sold_items
 
-def get_current_listings(search_term="AirPods 2nd Generation"):
-    search_term = search_term.replace(" ", "+")
-    url = f'https://www.ebay.com/sch/i.html?_nkw={search_term}&_sop=12&LH_BIN=1'
-    response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, 'html.parser')
+            price = extract_first_price(price_tag.text)
+            if price:
+                listings.append({
+                    "title": title,
+                    "price": price,
+                    "url": link_tag["href"]
+                })
 
-    clean = []
-    sketchy = []
-    for item in soup.select('.s-item'):
-        title = item.select_one('.s-item__title')
-        price = item.select_one('.s-item__price')
-        if title and price:
-            try:
-                price_text = price.text.replace('$', '').replace(',', '').split(' ')[0]
-                price_float = float(price_text)
-                title_text = title.text.strip()
-                # Apply the title_is_clean check to both clean and sketchy listings
-                if title_is_clean(title_text):
-                    clean.append((title_text, price_float))
-                else:
-                    # Ensure "Shop on eBay — $20.00" is excluded from the sketchy list as well
-                    if not re.search(r"shop on ebay\s*[-—]?\s*\$?20\.00", title_text.lower()):
-                        sketchy.append((title_text, price_float))
-            except ValueError:
+    return listings
+
+def scrape_ebay_current(search_term):
+    url = f"https://www.ebay.com/sch/i.html?_nkw={search_term}&_sop=12"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    listings = []
+
+    for item in soup.select(".s-item"):
+        title_tag = item.select_one(".s-item__title")
+        price_tag = item.select_one(".s-item__price")
+        link_tag = item.select_one(".s-item__link")
+
+        if title_tag and price_tag and link_tag:
+            title = title_tag.text.strip()
+            if "Shop on eBay" in title:
                 continue
-    return clean, sketchy
 
-# Streamlit interface
-def main():
-    st.title("eBay Price Checker")
+            price = extract_first_price(price_tag.text)
+            if price:
+                listings.append({
+                    "title": title,
+                    "price": price,
+                    "url": link_tag["href"]
+                })
 
-    # User input for search term
-    search_term = st.text_input("Search eBay for:", "AirPods 2nd Generation")
+    return listings
 
-    # Fetch sold prices for the average price calculation
-    sold_items = get_sold_prices(search_term)
-    if sold_items:
-        avg_price = sum(price for _, price in sold_items) / len(sold_items)
-        st.write(f"💰 Average Sold Price for '{search_term}': ${avg_price:.2f}")
+# UI
+st.title("FlipIT: eBay Price Checker")
+search_query = st.text_input("🔍 Enter a product name to search:")
 
-        # Display sold items
-        st.header("📦 Sold Listings")
-        for title, price in sold_items[:10]:  # limit for clarity
-            st.write(f"{title} — ${price:.2f}")
+if search_query:
+    sold_listings = scrape_ebay_sold(search_query)
+    current_listings = scrape_ebay_current(search_query)
+
+    if sold_listings:
+        sold_prices = [item["price"] for item in sold_listings]
+        avg_price = round(statistics.mean(sold_prices), 2)
+        st.success(f"Average Sold Price for '{search_query}': ${avg_price}")
+
+        filtered_current = [item for item in current_listings if item["price"] <= 0.85 * avg_price]
+        sketchy_listings = [
+            item for item in current_listings
+            if item not in filtered_current and "case" not in item["title"].lower()
+            and "shell" not in item["title"].lower()
+            and "part" not in item["title"].lower()
+            and "Shop on eBay" not in item["title"]
+        ]
+
+        if filtered_current:
+            st.subheader(f"Current Listings Under 85% of Average Price for '{search_query}'")
+            for item in filtered_current:
+                st.markdown(f"- **{item['title']}** — ${item['price']} [🔗 View Listing]({item['url']})")
+
+        if sketchy_listings:
+            st.subheader("Sketchy Listings (Might Still Be Useful)")
+            for item in sketchy_listings:
+                st.markdown(f"- *{item['title']}* — ${item['price']} [Are you sure? 🔗]({item['url']})")
     else:
-        st.write("No sold data found.")
+        st.error("No sold listings found. Try another search term.")
 
-    # Fetch current listings
-    clean_listings, sketchy_listings = get_current_listings(search_term)
-
-    # Show potential flips (15% off the average price)
-    st.header(f"🟢 Current Listings Under 85% of Average Price for '{search_term}'")
-    for title, price in clean_listings:
-        if price < avg_price * 0.85:
-            st.write(f"{title} — ${price:.2f} (Possible Flip!)")
-
-    # Show sketchy listings
-    st.header("⚠️ Sketchy Listings (Might Still Be Useful)")
-    for title, price in sketchy_listings:
-        st.write(f"{title} — ${price:.2f}")
-
-if __name__ == "__main__":
-    main()
