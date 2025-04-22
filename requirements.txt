@@ -1,0 +1,6 @@
+streamlit
+beautifulsoup4
+requests
+git add requirements.txt
+git commit -m "Add requirements for Streamlit Cloud"
+git push
