@@ -121,6 +121,18 @@ if search_query:
         buy_it_now_listings = [item for item in filtered_current if item["listing_type"] == "Buy It Now"]
         auction_listings = [item for item in filtered_current if item["listing_type"] == "Auction"]
 
+        # Sketchy listings filtering
+        sketchy_listings = [
+            item for item in current_listings
+            if item not in filtered_current and "case" not in item["title"].lower()
+            and "shell" not in item["title"].lower()
+            and "part" not in item["title"].lower()
+            and "Shop on eBay" not in item["title"]
+            and min_price <= item["price"] <= max_price
+        ]
+        sketchy_listings = sorted(sketchy_listings, key=lambda x: x["flip_score"], reverse=True)
+
+        # Display Buy It Now Listings
         if buy_it_now_listings:
             st.subheader(f"🟢 Buy It Now Listings Under 85% of Average Price for '{search_query}'")
             for item in buy_it_now_listings:
@@ -135,6 +147,7 @@ if search_query:
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
+        # Display Auction Listings
         if auction_listings:
             st.subheader(f"⚠️ Auction Listings Under 85% of Average Price for '{search_query}'")
             for item in auction_listings:
@@ -148,6 +161,23 @@ if search_query:
                                 f"[🔗 View Listing]({item['url']})  \n"
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
+
+        # Display Sketchy Listings
+        include_sketchy = st.checkbox("Include sketchy listings")
+        if include_sketchy and sketchy_listings:
+            st.subheader("⚠️ Sketchy Listings (Might Still Be Useful)")
+            for item in sketchy_listings:
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if item['image']:
+                        st.image(item['image'], width=90)
+                with col2:
+                    color = flip_color(item["flip_score"])
+                    st.markdown(f"*{item['title']}* — ${item['price']}  \n"
+                                f"[Are you sure? 🔗]({item['url']})  \n"
+                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                                unsafe_allow_html=True)
+
     else:
         st.error("No sold listings found. Try another search term.")
 
