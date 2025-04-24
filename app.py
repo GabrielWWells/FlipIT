@@ -6,6 +6,14 @@ import statistics
 
 st.set_page_config(page_title="FlipIT", layout="wide")
 
+# Session state for saved favorites
+if "favorites" not in st.session_state:
+    st.session_state.favorites = set()
+
+# Function to generate a unique identifier for each listing
+def listing_key(item):
+    return f"{item['title']}_{item['price']:.2f}"
+
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
 if "saved_urls" not in st.session_state:
@@ -97,6 +105,23 @@ with st.expander("⭐ Favorites"):
     else:
         st.write("No favorites saved yet.")
 
+# Favorites section at the top
+with st.expander("⭐ View Favorites", expanded=False):
+    if st.session_state.favorites:
+        for item in st.session_state.favorites:
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                if item['image']:
+                    st.image(item['image'], width=90)
+            with col2:
+                color = flip_color(item["flip_score"])
+                st.markdown(f"**{item['title']}** — ${item['price']}  \n"
+                            f"[🔗 View Listing]({item['url']})  \n"
+                            f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                            unsafe_allow_html=True)
+    else:
+        st.info("No favorites saved yet.")
+
 search_query = st.text_input("🔍 Enter a product name to search:")
 
 if search_query:
@@ -147,6 +172,27 @@ if search_query:
                             st.session_state.favorites.append(item)
                             st.session_state.saved_urls.add(item["url"])
                             st.experimental_rerun()
+
+        for item in filtered_current:
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if item['image']:
+            st.image(item['image'], width=90)
+    with col2:
+        color = flip_color(item["flip_score"])
+        st.markdown(f"**{item['title']}** — ${item['price']}  \n"
+                    f"[🔗 View Listing]({item['url']})  \n"
+                    f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                    unsafe_allow_html=True)
+        
+        key = listing_key(item)
+        already_saved = any(listing_key(fav) == key for fav in st.session_state.favorites)
+
+        if already_saved:
+            st.button("✅ Saved", key=f"saved_{key}", disabled=True)
+        else:
+            if st.button("⭐ Save to Favorites", key=f"save_{key}"):
+                st.session_state.favorites.add(item)
 
         include_sketchy = st.checkbox("Include sketchy listings")
         if include_sketchy and sketchy_listings:
