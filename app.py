@@ -11,87 +11,18 @@ def extract_first_price(text):
     matches = re.findall(r"\d+\.\d{2}", text.replace(",", ""))
     return float(matches[0]) if matches else None
 
-# Function to scrape eBay sold listings
-def scrape_ebay_sold(search_term):
-    url = f"https://www.ebay.com/sch/i.html?_nkw={search_term}&_sop=13&LH_Complete=1&LH_Sold=1"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    listings = []
-
-    for item in soup.select(".s-item"):
-        title_tag = item.select_one(".s-item__title")
-        price_tag = item.select_one(".s-item__price")
-        link_tag = item.select_one(".s-item__link")
-        image_tag = item.select_one(".s-item__image-img")
-
-        if title_tag and price_tag and link_tag:
-            title = title_tag.text.strip()
-            if "Shop on eBay" in title:
-                continue
-
-            price = extract_first_price(price_tag.text)
-            if price:
-                listings.append({
-                    "title": title,
-                    "price": price,
-                    "url": link_tag["href"],
-                    "image": image_tag["src"] if image_tag else None
-                })
-
-    return listings
-
-# Function to scrape current listings from eBay
-def scrape_ebay_current(search_term):
-    url = f"https://www.ebay.com/sch/i.html?_nkw={search_term}&_sop=12"
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, "html.parser")
-    listings = []
-
-    for item in soup.select(".s-item"):
-        title_tag = item.select_one(".s-item__title")
-        price_tag = item.select_one(".s-item__price")
-        link_tag = item.select_one(".s-item__link")
-        image_tag = item.select_one(".s-item__image-img")
-
-        if title_tag and price_tag and link_tag:
-            title = title_tag.text.strip()
-            if "Shop on eBay" in title:
-                continue
-
-            price = extract_first_price(price_tag.text)
-            if price:
-                listings.append({
-                    "title": title,
-                    "price": price,
-                    "url": link_tag["href"],
-                    "image": image_tag["src"] if image_tag else None
-                })
-
-    return listings
-
 # Function to calculate the flip score
 def flip_score(price, avg_price):
     score = max(0, min(100, round((1 - (price / avg_price)) * 100)))
     return score
 
-# Function to determine the flip score color
-def flip_color(score):
-    if score >= 90:
-        return "green"
-    elif score >= 70:
-        return "gold"
-    elif score >= 40:
-        return "orange"
-    else:
-        return "red"
-
-# Function to fetch top deals from a category
+# Function to fetch listings from a given category URL
 def fetch_top_deals(category_url):
     response = requests.get(category_url)
     soup = BeautifulSoup(response.text, "html.parser")
     listings = []
 
-    # Scraping top 10 listings
+    # Scrape top 10 listings
     for item in soup.select(".s-item")[:10]:  # Limit to top 10 results
         title_tag = item.select_one(".s-item__title")
         price_tag = item.select_one(".s-item__price")
@@ -110,6 +41,28 @@ def fetch_top_deals(category_url):
                 })
 
     return listings
+
+# Function to fetch top deals, filter by price, and calculate flip scores
+def fetch_and_filter_deals(category_url):
+    listings = fetch_top_deals(category_url)
+
+    if not listings:
+        return []
+
+    # Calculate average price for the category listings
+    avg_price = statistics.mean([item['price'] for item in listings])
+
+    # Filter listings below 85% of average price and calculate flip score
+    filtered_listings = []
+    for item in listings:
+        item['flip_score'] = flip_score(item['price'], avg_price)
+        if item['price'] <= 0.85 * avg_price:  # Below 85% of the average price
+            filtered_listings.append(item)
+
+    # Sort by flip score in descending order (highest score first)
+    sorted_listings = sorted(filtered_listings, key=lambda x: x['flip_score'], reverse=True)
+
+    return sorted_listings[:10]  # Return the top 10 deals
 
 # UI for Top Deals Section
 categories = {
@@ -143,7 +96,7 @@ selected_categories = st.multiselect(
 for category in selected_categories:
     st.subheader(f"Top Deals in {category}")
     category_url = categories[category]
-    top_deals = fetch_top_deals(category_url)
+    top_deals = fetch_and_filter_deals(category_url)
     
     # Display top deals for the selected category
     if top_deals:
@@ -223,3 +176,4 @@ if search_query:
                                 unsafe_allow_html=True)
     else:
         st.error("No sold listings found. Try another search term.")
+
