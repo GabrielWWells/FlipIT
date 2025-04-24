@@ -80,31 +80,30 @@ def flip_color(score):
     else:
         return "red"
 
-# UI
-st.title("FlipIT: eBay Price Checker")
-
-# Initialize session state for favorites if not already done
+# Initialize session state
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
 
-# Dropdown to toggle favorites section
-with st.expander("⭐ Your Favorites", expanded=False):
+# UI
+st.title("FlipIT: eBay Price Checker")
+search_query = st.text_input("🔍 Enter a product name to search:")
+
+# Favorites Section
+with st.expander("⭐ View Saved Favorites"):
     if st.session_state.favorites:
-        for item in st.session_state.favorites:
+        for fav in st.session_state.favorites:
             col1, col2 = st.columns([1, 4])
             with col1:
-                if item['image']:
-                    st.image(item['image'], width=90)
+                if fav["image"]:
+                    st.image(fav["image"], width=90)
             with col2:
-                color = flip_color(item["flip_score"])
-                st.markdown(f"**{item['title']}** — ${item['price']}  \n"
-                            f"[🔗 View Listing]({item['url']})  \n"
-                            f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                color = flip_color(fav["flip_score"]) if "flip_score" in fav else "gray"
+                st.markdown(f"**{fav['title']}** — ${fav['price']}  \n"
+                            f"[🔗 View Listing]({fav['url']})  \n"
+                            f"<span style='color:{color}'>📈 Flip Score: {fav.get('flip_score', 'N/A')}/100</span>",
                             unsafe_allow_html=True)
     else:
-        st.write("No favorites yet!")
-
-search_query = st.text_input("🔍 Enter a product name to search:")
+        st.write("No favorites saved yet.")
 
 if search_query:
     sold_listings = scrape_ebay_sold(search_query)
@@ -141,7 +140,7 @@ if search_query:
 
         if filtered_current:
             st.subheader(f"🟢 Current Listings Under 85% of Average Price for '{search_query}'")
-            for item in filtered_current:
+            for i, item in enumerate(filtered_current):
                 col1, col2 = st.columns([1, 4])
                 with col1:
                     if item['image']:
@@ -153,19 +152,16 @@ if search_query:
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
-                    # Check if item is already in favorites
-                    if item not in st.session_state.favorites:
-                        save_button = st.button(f"⭐ Save to Favorites", key=item["url"])
-                        if save_button:
-                            st.session_state.favorites.append(item)
-                            st.experimental_rerun()  # Rerun the app to reflect the saved state
+                    if item["url"] in [fav["url"] for fav in st.session_state.favorites]:
+                        st.button("✅ Saved", key=f"saved_{i}", disabled=True)
                     else:
-                        st.button("⭐ Saved", disabled=True)
+                        if st.button("💾 Save to Favorites", key=f"save_{i}"):
+                            st.session_state.favorites.append(item)
 
         include_sketchy = st.checkbox("Include sketchy listings")
         if include_sketchy and sketchy_listings:
             st.subheader("⚠️ Sketchy Listings (Might Still Be Useful)")
-            for item in sketchy_listings:
+            for i, item in enumerate(sketchy_listings):
                 col1, col2 = st.columns([1, 4])
                 with col1:
                     if item['image']:
@@ -177,6 +173,11 @@ if search_query:
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
+                    if item["url"] in [fav["url"] for fav in st.session_state.favorites]:
+                        st.button("✅ Saved", key=f"sketch_saved_{i}", disabled=True)
+                    else:
+                        if st.button("💾 Save to Favorites", key=f"sketch_save_{i}"):
+                            st.session_state.favorites.append(item)
     else:
         st.error("No sold listings found. Try another search term.")
 
