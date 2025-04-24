@@ -21,7 +21,8 @@ def scrape_ebay_sold(search_term):
         price_tag = item.select_one(".s-item__price")
         link_tag = item.select_one(".s-item__link")
         image_tag = item.select_one(".s-item__image-img")
-
+        buy_it_now_tag = item.select_one(".s-item__purchase-options")
+        
         if title_tag and price_tag and link_tag:
             title = title_tag.text.strip()
             if "Shop on eBay" in title:
@@ -29,11 +30,15 @@ def scrape_ebay_sold(search_term):
 
             price = extract_first_price(price_tag.text)
             if price:
+                # Check if it's a Buy It Now or Auction listing
+                listing_type = "Buy It Now" if buy_it_now_tag else "Auction"
+
                 listings.append({
                     "title": title,
                     "price": price,
                     "url": link_tag["href"],
-                    "image": image_tag["src"] if image_tag else None
+                    "image": image_tag["src"] if image_tag else None,
+                    "listing_type": listing_type
                 })
 
     return listings
@@ -49,7 +54,8 @@ def scrape_ebay_current(search_term):
         price_tag = item.select_one(".s-item__price")
         link_tag = item.select_one(".s-item__link")
         image_tag = item.select_one(".s-item__image-img")
-
+        buy_it_now_tag = item.select_one(".s-item__purchase-options")
+        
         if title_tag and price_tag and link_tag:
             title = title_tag.text.strip()
             if "Shop on eBay" in title:
@@ -57,11 +63,15 @@ def scrape_ebay_current(search_term):
 
             price = extract_first_price(price_tag.text)
             if price:
+                # Check if it's a Buy It Now or Auction listing
+                listing_type = "Buy It Now" if buy_it_now_tag else "Auction"
+
                 listings.append({
                     "title": title,
                     "price": price,
                     "url": link_tag["href"],
-                    "image": image_tag["src"] if image_tag else None
+                    "image": image_tag["src"] if image_tag else None,
+                    "listing_type": listing_type
                 })
 
     return listings
@@ -107,19 +117,13 @@ if search_query:
         # Sort by flip score
         filtered_current = sorted(filtered_current, key=lambda x: x["flip_score"], reverse=True)
 
-        sketchy_listings = [
-            item for item in current_listings
-            if item not in filtered_current and "case" not in item["title"].lower()
-            and "shell" not in item["title"].lower()
-            and "part" not in item["title"].lower()
-            and "Shop on eBay" not in item["title"]
-            and min_price <= item["price"] <= max_price
-        ]
-        sketchy_listings = sorted(sketchy_listings, key=lambda x: x["flip_score"], reverse=True)
+        # Separate by listing type (Buy It Now vs Auction)
+        buy_it_now_listings = [item for item in filtered_current if item["listing_type"] == "Buy It Now"]
+        auction_listings = [item for item in filtered_current if item["listing_type"] == "Auction"]
 
-        if filtered_current:
-            st.subheader(f"🟢 Current Listings Under 85% of Average Price for '{search_query}'")
-            for item in filtered_current:
+        if buy_it_now_listings:
+            st.subheader(f"🟢 Buy It Now Listings Under 85% of Average Price for '{search_query}'")
+            for item in buy_it_now_listings:
                 col1, col2 = st.columns([1, 4])
                 with col1:
                     if item['image']:
@@ -131,10 +135,9 @@ if search_query:
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
-        include_sketchy = st.checkbox("Include sketchy listings")
-        if include_sketchy and sketchy_listings:
-            st.subheader("⚠️ Sketchy Listings (Might Still Be Useful)")
-            for item in sketchy_listings:
+        if auction_listings:
+            st.subheader(f"⚠️ Auction Listings Under 85% of Average Price for '{search_query}'")
+            for item in auction_listings:
                 col1, col2 = st.columns([1, 4])
                 with col1:
                     if item['image']:
@@ -142,8 +145,9 @@ if search_query:
                 with col2:
                     color = flip_color(item["flip_score"])
                     st.markdown(f"*{item['title']}* — ${item['price']}  \n"
-                                f"[Are you sure? 🔗]({item['url']})  \n"
+                                f"[🔗 View Listing]({item['url']})  \n"
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
     else:
         st.error("No sold listings found. Try another search term.")
+
