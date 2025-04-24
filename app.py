@@ -66,6 +66,20 @@ def scrape_ebay_current(search_term):
 
     return listings
 
+def flip_score(price, avg_price):
+    score = max(0, min(100, round((1 - (price / avg_price)) * 100)))
+    return score
+
+def flip_color(score):
+    if score >= 90:
+        return "green"
+    elif score >= 70:
+        return "gold"
+    elif score >= 40:
+        return "orange"
+    else:
+        return "red"
+
 # UI
 st.title("FlipIT: eBay Price Checker")
 search_query = st.text_input("🔍 Enter a product name to search:")
@@ -79,18 +93,29 @@ if search_query:
         avg_price = round(statistics.mean(sold_prices), 2)
         st.success(f"Average Sold Price for '{search_query}': ${avg_price}")
 
-        filtered_current = [item for item in current_listings if item["price"] <= 0.85 * avg_price]
+        # Assign flip score to each listing
+        for item in current_listings:
+            item["flip_score"] = flip_score(item["price"], avg_price)
+
+        # Sliders for price filtering
+        prices = [item["price"] for item in current_listings]
+        min_price, max_price = st.slider("💸 Filter by Price Range ($)", min_value=float(min(prices)), max_value=float(max(prices)), value=(float(min(prices)), float(max(prices))))
+
+        # Filter current listings
+        filtered_current = [item for item in current_listings if item["price"] <= 0.85 * avg_price and min_price <= item["price"] <= max_price]
+
+        # Sort by flip score
+        filtered_current = sorted(filtered_current, key=lambda x: x["flip_score"], reverse=True)
+
         sketchy_listings = [
             item for item in current_listings
             if item not in filtered_current and "case" not in item["title"].lower()
             and "shell" not in item["title"].lower()
             and "part" not in item["title"].lower()
             and "Shop on eBay" not in item["title"]
+            and min_price <= item["price"] <= max_price
         ]
-
-        def flip_score(price):
-            score = max(0, min(100, round((1 - (price / avg_price)) * 100)))
-            return score
+        sketchy_listings = sorted(sketchy_listings, key=lambda x: x["flip_score"], reverse=True)
 
         if filtered_current:
             st.subheader(f"🟢 Current Listings Under 85% of Average Price for '{search_query}'")
@@ -100,9 +125,11 @@ if search_query:
                     if item['image']:
                         st.image(item['image'], width=90)
                 with col2:
+                    color = flip_color(item["flip_score"])
                     st.markdown(f"**{item['title']}** — ${item['price']}  \n"
                                 f"[🔗 View Listing]({item['url']})  \n"
-                                f"📈 **Flip Score**: {flip_score(item['price'])}/100")
+                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                                unsafe_allow_html=True)
 
         include_sketchy = st.checkbox("Include sketchy listings")
         if include_sketchy and sketchy_listings:
@@ -113,8 +140,11 @@ if search_query:
                     if item['image']:
                         st.image(item['image'], width=90)
                 with col2:
+                    color = flip_color(item["flip_score"])
                     st.markdown(f"*{item['title']}* — ${item['price']}  \n"
                                 f"[Are you sure? 🔗]({item['url']})  \n"
-                                f"📈 Flip Score: {flip_score(item['price'])}/100", unsafe_allow_html=True)
+                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                                unsafe_allow_html=True)
     else:
         st.error("No sold listings found. Try another search term.")
+
