@@ -83,7 +83,7 @@ def flip_color(score):
 # UI
 st.title("FlipIT: eBay Price Checker")
 
-# Initialize session state for favorites
+# Initialize session state for favorites if not already done
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
 
@@ -153,10 +153,12 @@ if search_query:
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
-                    # If item is already in favorites, show "Saved", else show "Save to Favorites"
+                    # Check if item is already in favorites
                     if item not in st.session_state.favorites:
-                        if st.button(f"⭐ Save to Favorites", key=item["url"]):
+                        save_button = st.button(f"⭐ Save to Favorites", key=item["url"])
+                        if save_button:
                             st.session_state.favorites.append(item)
+                            st.experimental_rerun()  # Rerun the app to reflect the saved state
                     else:
                         st.button("⭐ Saved", disabled=True)
 
