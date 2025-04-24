@@ -134,7 +134,7 @@ if search_query:
 
         # Display Buy It Now Listings
         if buy_it_now_listings:
-            st.subheader(f"🟢 Buy It Now Listings Under 85% of Average Price for '{search_query}'")
+            st.subheader(f"Buy It Now Listings Under 85% of Average Price for '{search_query}'")
             for item in buy_it_now_listings:
                 col1, col2 = st.columns([1, 4])
                 with col1:
@@ -143,13 +143,13 @@ if search_query:
                 with col2:
                     color = flip_color(item["flip_score"])
                     st.markdown(f"**{item['title']}** — ${item['price']}  \n"
-                                f"[🔗 View Listing]({item['url']})  \n"
-                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                                f"[View Listing]({item['url']})  \n"
+                                f"<span style='color:{color}'>Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
         # Display Auction Listings
         if auction_listings:
-            st.subheader(f"⚠️ Auction Listings Under 85% of Average Price for '{search_query}'")
+            st.subheader(f"Auction Listings Under 85% of Average Price for '{search_query}'")
             for item in auction_listings:
                 col1, col2 = st.columns([1, 4])
                 with col1:
@@ -159,13 +159,13 @@ if search_query:
                     color = flip_color(item["flip_score"])
                     st.markdown(f"*{item['title']}* — ${item['price']}  \n"
                                 f"[🔗 View Listing]({item['url']})  \n"
-                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                                f"<span style='color:{color}'>Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
         # Display Sketchy Listings
-        include_sketchy = st.checkbox("Include sketchy listings")
+        include_sketchy = st.checkbox("Include other listings")
         if include_sketchy and sketchy_listings:
-            st.subheader("⚠️ Sketchy Listings (Might Still Be Useful)")
+            st.subheader("Listings Over 85% of Average Price (Might Still Be Useful)")
             for item in sketchy_listings:
                 col1, col2 = st.columns([1, 4])
                 with col1:
@@ -174,8 +174,8 @@ if search_query:
                 with col2:
                     color = flip_color(item["flip_score"])
                     st.markdown(f"*{item['title']}* — ${item['price']}  \n"
-                                f"[Are you sure? 🔗]({item['url']})  \n"
-                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                                f"[View Listing]({item['url']})  \n"
+                                f"<span style='color:{color}'>Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
     else:
