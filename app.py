@@ -82,11 +82,29 @@ def flip_color(score):
 
 # UI
 st.title("FlipIT: eBay Price Checker")
-search_query = st.text_input("🔍 Enter a product name to search:")
 
 # Initialize session state for favorites
 if "favorites" not in st.session_state:
     st.session_state.favorites = []
+
+# Dropdown to toggle favorites section
+with st.expander("⭐ Your Favorites", expanded=False):
+    if st.session_state.favorites:
+        for item in st.session_state.favorites:
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                if item['image']:
+                    st.image(item['image'], width=90)
+            with col2:
+                color = flip_color(item["flip_score"])
+                st.markdown(f"**{item['title']}** — ${item['price']}  \n"
+                            f"[🔗 View Listing]({item['url']})  \n"
+                            f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
+                            unsafe_allow_html=True)
+    else:
+        st.write("No favorites yet!")
+
+search_query = st.text_input("🔍 Enter a product name to search:")
 
 if search_query:
     sold_listings = scrape_ebay_sold(search_query)
@@ -151,20 +169,6 @@ if search_query:
                     color = flip_color(item["flip_score"])
                     st.markdown(f"*{item['title']}* — ${item['price']}  \n"
                                 f"[Are you sure? 🔗]({item['url']})  \n"
-                                f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
-                                unsafe_allow_html=True)
-                    
-        if st.session_state.favorites:
-            st.subheader("⭐ Your Favorites")
-            for item in st.session_state.favorites:
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if item['image']:
-                        st.image(item['image'], width=90)
-                with col2:
-                    color = flip_color(item["flip_score"])
-                    st.markdown(f"**{item['title']}** — ${item['price']}  \n"
-                                f"[🔗 View Listing]({item['url']})  \n"
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
