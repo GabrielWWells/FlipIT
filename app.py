@@ -153,9 +153,12 @@ if search_query:
                                 f"<span style='color:{color}'>📈 Flip Score: {item['flip_score']}/100</span>",
                                 unsafe_allow_html=True)
 
-                    # Add a button to save favorites
-                    if st.button(f"⭐ Save to Favorites", key=item["url"]):
-                        st.session_state.favorites.append(item)
+                    # If item is already in favorites, show "Saved", else show "Save to Favorites"
+                    if item not in st.session_state.favorites:
+                        if st.button(f"⭐ Save to Favorites", key=item["url"]):
+                            st.session_state.favorites.append(item)
+                    else:
+                        st.button("⭐ Saved", disabled=True)
 
         include_sketchy = st.checkbox("Include sketchy listings")
         if include_sketchy and sketchy_listings:
